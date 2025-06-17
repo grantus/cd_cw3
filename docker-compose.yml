@@ -1,0 +1,24 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  orders_service:
+    build: ./orders_service
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    container_name: orders_service
+    ports: ["8000:8000"]
+    depends_on: [rabbitmq]
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+
+  payments_service:
+    build: ./payments_service
+    command: uvicorn main:app --host 0.0.0.0 --port 8001
+    container_name: payments_service
+    ports: ["8001:8001"]
+    depends_on: [rabbitmq]
+    environment:
+      - RABBITMQ_HOST=rabbitmq
