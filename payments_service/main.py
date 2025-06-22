@@ -56,34 +56,27 @@ def get_balance(user_id: int):
         raise HTTPException(status_code=404, detail="User not found")
     return {"balance": balances_db[user_id]}
 
+class CreditPayload(BaseModel):
+    message_id: str
+    user_id:    int
+    amount:     int
+
 @app.post("/credit")
-async def credit(request: Request):
-    raw = await request.body()
-    if not raw:
-        raise HTTPException(status_code=400, detail="Empty body")
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
-    if not db_file.exists():
-        recreate_db()
-    data = await request.json()
-    message_id = data.get("message_id")
-    user_id = data.get("user_id")
-    amount = data.get("amount")
-    if not message_id or not isinstance(user_id, int) or not isinstance(amount, int):
-        raise HTTPException(status_code=400, detail="Invalid data")
-    if message_id in processed_messages:
+async def credit(payload: CreditPayload):
+    if payload.message_id in processed_messages:
         return {"status": "already_processed"}
-    balances_db.setdefault(user_id, 0)
-    balances_db[user_id] += amount
-    cursor.execute("""
-    INSERT INTO balances (user_id, balance)
-    VALUES (?, ?)
-    ON CONFLICT(user_id) DO UPDATE SET balance = balance + excluded.balance
-    """, (user_id, amount))
+
+    balances_db.setdefault(payload.user_id, 0)
+    balances_db[payload.user_id] += payload.amount
+    cursor.execute(
+        """INSERT INTO balances(user_id,balance)
+           VALUES (?, ?)
+           ON CONFLICT(user_id) DO UPDATE
+             SET balance = balance + excluded.balance""",
+        (payload.user_id, payload.amount),
+    )
     conn.commit()
-    processed_messages.add(message_id)
+    processed_messages.add(payload.message_id)
     return {"status": "credited"}
 
 @app.post("/withdraw")
