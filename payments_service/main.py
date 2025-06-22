@@ -58,6 +58,13 @@ def get_balance(user_id: int):
 
 @app.post("/credit")
 async def credit(request: Request):
+    raw = await request.body()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty body")
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
     if not db_file.exists():
         recreate_db()
     data = await request.json()
